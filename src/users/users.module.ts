@@ -7,6 +7,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { RolesGuard } from '../auth/roles.guard';
+import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { RolesGuard } from '../auth/roles.guard';
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '1d' },
     }),
+    CloudinaryModule,
   ],
   controllers: [UsersController],
   providers: [UsersService, JwtStrategy, RolesGuard],

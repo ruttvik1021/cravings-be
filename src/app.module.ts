@@ -7,6 +7,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtStrategy } from './auth/jwt.strategy';
 import { JwtModule } from '@nestjs/jwt';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { RestaurantsModule } from './restaurants/restaurants.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { JwtModule } from '@nestjs/jwt';
       inject: [ConfigService],
     }),
     UsersModule,
+    CloudinaryModule,
+    RestaurantsModule,
   ],
   controllers: [AppController],
   providers: [AppService, JwtStrategy],
