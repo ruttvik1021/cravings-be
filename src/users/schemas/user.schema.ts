@@ -1,8 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-export type UserDocument = User & Document;
-
 export enum UserRoles {
   USER = 'user',
   RESTAURANT_OWNER = 'restaurant_owner',
@@ -10,7 +8,19 @@ export enum UserRoles {
   ADMIN = 'admin',
 }
 
-@Schema({ timestamps: true })
+@Schema({
+  timestamps: true,
+  toJSON: {
+    transform: function (_, ret) {
+      console.log('ret', ret);
+      // Exclude fields when converting the document to JSON
+      delete ret.createdAt;
+      delete ret.updatedAt;
+      delete ret.__v;
+      delete ret.password;
+    },
+  },
+})
 export class User {
   @Prop({ required: true })
   name: string;
@@ -41,4 +51,6 @@ export class User {
   isApproved: boolean;
 }
 
+export type UserDocument = User & Document;
 export const UserSchema = SchemaFactory.createForClass(User);
+export const USER_MODEL = User.name;

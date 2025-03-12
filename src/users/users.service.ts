@@ -12,12 +12,17 @@ import { Model } from 'mongoose';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
-import { User, UserRoles } from './schemas/user.schema';
+import {
+  User,
+  USER_MODEL,
+  UserDocument,
+  UserRoles,
+} from './schemas/user.schema';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(USER_MODEL) private userModel: Model<UserDocument>,
     private jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly cloudinaryService: CloudinaryService,
@@ -59,7 +64,7 @@ export class UsersService {
     );
 
     return {
-      user: newUser.toObject(),
+      user: newUser,
       accessToken,
     };
   }
@@ -114,7 +119,7 @@ export class UsersService {
     });
 
     return {
-      user: newUser.toObject(),
+      user: newUser,
       accessToken,
     };
   }
@@ -170,14 +175,14 @@ export class UsersService {
     });
 
     return {
-      user: newUser.toObject(),
+      user: newUser,
       accessToken,
     };
   }
 
   async login(
     loginDto: LoginDto,
-  ): Promise<{ user: User; accessToken: string }> {
+  ): Promise<{ user: Partial<UserDocument>; accessToken: string }> {
     const jwtSecret = this.configService.get('JWT_SECRET')!;
     const jwtExpiresIn = this.configService.get('JWT_EXPIRES_IN')!;
 
@@ -185,16 +190,6 @@ export class UsersService {
 
     if (!user || !(await bcrypt.compare(loginDto.password, user.password))) {
       throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // Check approval for restaurant owners/delivery agents
-    if (
-      [UserRoles.RESTAURANT_OWNER, UserRoles.DELIVERY_AGENT].includes(
-        user.role as UserRoles,
-      ) &&
-      !user.isApproved
-    ) {
-      throw new UnauthorizedException('Account pending approval');
     }
 
     const payload = { userId: user.id, email: user.email, role: user.role };
@@ -205,7 +200,7 @@ export class UsersService {
     );
 
     return {
-      user: user.toObject(), // Convert Mongoose document to plain object
+      user,
       accessToken,
     };
   }
