@@ -12,7 +12,6 @@ export enum UserRoles {
   timestamps: true,
   toJSON: {
     transform: function (_, ret) {
-      console.log('ret', ret);
       // Exclude fields when converting the document to JSON
       delete ret.createdAt;
       delete ret.updatedAt;
