@@ -1,25 +1,53 @@
 import {
-  Controller,
-  Post,
   Body,
+  Controller,
   Get,
-  UseGuards,
-  Patch,
   Param,
-  Request,
-  UseInterceptors,
+  Patch,
+  Post,
+  Req,
   UploadedFiles,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
 import { RolesGuard } from 'src/auth/roles.guard';
-import { UpdateApprovalDto } from 'src/users/dto/update-approval.dto';
-import { RestaurantsService } from './restaurants.service';
+import { CreateRestaurantDto } from 'src/users/dto/create-restaurant.dto';
 import { UserRoles } from 'src/users/schemas/user.schema';
+import { RestaurantsService } from './restaurants.service';
 
 @Controller('restaurants')
 export class RestaurantsController {
   constructor(private readonly restaurantsService: RestaurantsService) {}
+
+  @Post('setup')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoles.RESTAURANT_OWNER)
+  @UseInterceptors(AnyFilesInterceptor())
+  async createRestaurant(
+    @UploadedFiles() files: Express.Multer.File[], // Catch all files
+    @Body() createRestaurantDto: CreateRestaurantDto,
+    @Req() req: Request,
+  ) {
+    const logo = files.find((file) => file.fieldname === 'logo'); // Extract logo
+    const images = files.filter((file) => file.fieldname === 'images'); // Extract images
+    return this.restaurantsService.createRestaurant(
+      createRestaurantDto,
+      logo,
+      images,
+      req,
+    );
+  }
+
+  @Get('setup')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoles.RESTAURANT_OWNER)
+  async getSetupDetials(@Req() req: Request) {
+    return this.restaurantsService.getRestaurantDetails(req);
+  }
   // **Admin Approval for Users**
   @Patch(':id/approve')
   @Roles(UserRoles.ADMIN)
