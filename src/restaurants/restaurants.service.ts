@@ -51,7 +51,11 @@ export class RestaurantsService {
     images: Express.Multer.File[],
     req: decodedRequest,
   ): Promise<Restaurant> {
-    const ownerId = req.user?._id;
+    const ownerId = req.user?.userId;
+
+    if (!ownerId) {
+      throw new BadRequestException('UserId not found.');
+    }
     const existingRestaurant = await this.getRestaurantsByOwner(ownerId);
     if (existingRestaurant.length) {
       throw new BadRequestException('You already own a restaurant.');
@@ -82,7 +86,7 @@ export class RestaurantsService {
   }
 
   async getRestaurantDetails(req: decodedRequest) {
-    const ownerId = req.user?._id;
+    const ownerId = req.user?.userId;
     return this.getRestaurantsByOwner(ownerId);
   }
 

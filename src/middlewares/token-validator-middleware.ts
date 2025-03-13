@@ -1,8 +1,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response, NextFunction } from 'express';
-import { ConfigService } from '@nestjs/config';
-import { JWT_Payload } from 'src/auth/jwt.strategy';
+import { ConfigService } from '@nestjs/config'; // Import ConfigService
 
 @Injectable()
 export class TokenValidator implements NestMiddleware {
@@ -12,19 +11,29 @@ export class TokenValidator implements NestMiddleware {
   ) {}
 
   use(req: decodedRequest, res: Response, next: NextFunction) {
-    // Extract the token from cookies
-    const token = req.cookies?.token;
+    const { headers } = req;
+    const authorizationHeader = headers.authorization;
 
-    if (!token) {
-      return res.status(401).json({ message: 'Unauthorised' });
+    if (!authorizationHeader) {
+      return res.status(401).json({ message: 'Unauthorized' });
     }
 
+    const [bearer, token] = authorizationHeader.split(' ');
+
+    console.log('bearer', { bearer, token });
+
+    if (bearer !== 'Bearer' || !token) {
+      return res.status(401).json({
+        message: 'Unauthorized',
+      });
+    }
     const secret = this.configService.get<string>('JWT_SECRET') || ''; // Get JWT_SECRET from environment
 
     try {
-      // Verify and decode the token
       const decodedToken = this.jwtService.verify(token, { secret });
-      req.user = decodedToken as JWT_Payload; // Attach the decoded user to the request object
+      req.user = decodedToken;
+      // You can access the decoded token properties if needed
+      // For example: const userId = decodedToken.sub;
       next();
     } catch (error) {
       console.error('Token Verification Error:', error.message);
