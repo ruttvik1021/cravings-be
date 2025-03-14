@@ -32,10 +32,13 @@ export class MenuService {
   ) {
     const restaurantId = req.user?.restaurantId;
 
-    const existingCategory = await this.categoryModel.findOne({
-      name: { $regex: new RegExp(`^${createCategoryDto.name}$`, 'i') },
-      restaurant: restaurantId,
-    });
+    const existingCategory = await this.categoryModel
+      .findOne({
+        name: { $regex: new RegExp(`^${createCategoryDto.name}$`, 'i') },
+        restaurant: restaurantId,
+      })
+      .lean()
+      .exec();
 
     if (existingCategory) {
       throw new ConflictException('Category with this name already exists');
@@ -52,19 +55,25 @@ export class MenuService {
   async getCategories(req: decodedRequest) {
     const restaurantId = req.user?.restaurantId;
 
-    return this.categoryModel.find(
-      {
-        restaurant: new mongoose.Types.ObjectId(restaurantId),
-      },
-      { name: 1, _id: 1, description: 1 },
-    );
+    return this.categoryModel
+      .find(
+        {
+          restaurant: new mongoose.Types.ObjectId(restaurantId),
+        },
+        { name: 1, _id: 1, description: 1 },
+      )
+      .lean()
+      .exec();
   }
 
   async updateCategory(
     categoryId: string,
     updateCategoryDto: CreateCategoryDto,
   ) {
-    const category = await this.categoryModel.findById(categoryId);
+    const category = await this.categoryModel
+      .findById(categoryId)
+      .lean()
+      .exec();
 
     if (!category) {
       throw new NotFoundException('Category not found');
@@ -72,34 +81,44 @@ export class MenuService {
 
     // Check for duplicate name
     if (updateCategoryDto.name) {
-      const existingCategory = await this.categoryModel.findOne({
-        name: { $regex: new RegExp(`^${updateCategoryDto.name}$`, 'i') },
-        restaurant: category.restaurant,
-        _id: { $ne: categoryId },
-      });
+      const existingCategory = await this.categoryModel
+        .findOne({
+          name: { $regex: new RegExp(`^${updateCategoryDto.name}$`, 'i') },
+          restaurant: category.restaurant,
+          _id: { $ne: categoryId },
+        })
+        .lean()
+        .exec();
 
       if (existingCategory) {
         throw new ConflictException('Category with this name already exists');
       }
     }
 
-    return this.categoryModel.findByIdAndUpdate(categoryId, updateCategoryDto, {
-      new: true,
-      runValidators: true,
-    });
+    return this.categoryModel
+      .findByIdAndUpdate(categoryId, updateCategoryDto, {
+        new: true,
+        runValidators: true,
+      })
+      .exec();
   }
 
   async deleteCategory(categoryId: string) {
-    const category = await this.categoryModel.findById(categoryId);
+    const category = await this.categoryModel
+      .findById(categoryId)
+      .lean()
+      .exec();
 
     if (!category) {
       throw new NotFoundException('Category not found');
     }
 
-    // Check for existing items
-    const itemsCount = await this.menuItemModel.countDocuments({
-      category: categoryId,
-    });
+    // Check for existing items - use countDocuments instead of find for better performance
+    const itemsCount = await this.menuItemModel
+      .countDocuments({
+        category: categoryId,
+      })
+      .exec();
 
     if (itemsCount > 0) {
       throw new ConflictException(
@@ -107,7 +126,7 @@ export class MenuService {
       );
     }
 
-    return this.categoryModel.findByIdAndDelete(categoryId);
+    return this.categoryModel.findByIdAndDelete(categoryId).exec();
   }
 
   async createMenuItem(
@@ -119,11 +138,14 @@ export class MenuService {
     const restaurantId = req.user.restaurantId;
 
     // Check for duplicate item name in category
-    const existingItem = await this.menuItemModel.findOne({
-      name: createMenuItemDto.name,
-      category: createMenuItemDto.category,
-      restaurant: restaurantId,
-    });
+    const existingItem = await this.menuItemModel
+      .findOne({
+        name: createMenuItemDto.name,
+        category: createMenuItemDto.category,
+        restaurant: restaurantId,
+      })
+      .lean()
+      .exec();
 
     if (existingItem) {
       throw new ConflictException(
@@ -134,11 +156,10 @@ export class MenuService {
     // Upload image to Cloudinary
     let imageUrl = '';
     if (file) {
-      const uploadResult = await this.cloudinaryService.uploadImage(
+      imageUrl = await this.cloudinaryService.uploadImage(
         file,
         `restaurants/${ownerId}/images/menu/${createMenuItemDto.name}`,
       );
-      imageUrl = uploadResult;
     }
 
     const newItem = new this.menuItemModel({
@@ -152,15 +173,23 @@ export class MenuService {
 
   async getMenuItems(req: decodedRequest) {
     const restaurantId = req.user.restaurantId;
-    return this.menuItemModel.find({ restaurant: restaurantId }).sort('name');
+    return this.menuItemModel
+      .find({ restaurant: restaurantId })
+      .select('name price description category image isAvailable')
+      .sort('name')
+      .lean()
+      .exec();
   }
 
   async getMenuItemById(id: string, req: decodedRequest) {
     const restaurantId = req.user.restaurantId;
-    const item = await this.menuItemModel.findOne({
-      _id: id,
-      restaurant: restaurantId,
-    });
+    const item = await this.menuItemModel
+      .findOne({
+        _id: id,
+        restaurant: restaurantId,
+      })
+      .lean()
+      .exec();
 
     if (!item) {
       throw new NotFoundException('Menu item not found');
@@ -176,19 +205,21 @@ export class MenuService {
   ): Promise<MenuItem> {
     const { _id: ownerId, restaurantId } = req.user;
 
-    // Validate existing item
+    // Validate existing item - get only needed fields
     const existingItem = await this.menuItemModel
       .findOne({
         _id: id,
         restaurant: restaurantId,
       })
+      .select('name category image')
+      .lean()
       .exec();
 
     if (!existingItem) {
       throw new NotFoundException('Menu item not found');
     }
 
-    // Check for name conflict
+    // Check for name conflict - only if name is changing
     if (
       updateMenuItemDto.name &&
       updateMenuItemDto.name !== existingItem.name
@@ -200,6 +231,7 @@ export class MenuService {
           restaurant: restaurantId,
           _id: { $ne: id },
         })
+        .lean()
         .exec();
 
       if (duplicateItem) {
@@ -209,27 +241,37 @@ export class MenuService {
       }
     }
 
-    // Handle image update
-    let imageUrl = existingItem.image;
+    // Create update payload
+    const updatedItem: any = {
+      ...updateMenuItemDto,
+      updatedAt: new Date(),
+    };
+
+    // Handle image update only if a new file is provided
     if (file) {
+      // Process image deletion and upload in parallel if possible
+      const imagePromises = [];
+
       // Delete old image if exists
-      if (imageUrl) {
-        await this.cloudinaryService.deleteImage(imageUrl);
+      if (existingItem.image) {
+        imagePromises.push(
+          this.cloudinaryService.deleteImage(existingItem.image),
+        );
       }
 
       // Upload new image
-      imageUrl = await this.cloudinaryService.uploadImage(
+      const uploadPromise = this.cloudinaryService.uploadImage(
         file,
-        `restaurants/${ownerId}/menu/${updateMenuItemDto.name}`,
+        `restaurants/${ownerId}/menu/${updateMenuItemDto.name || existingItem.name}`,
       );
-    }
+      imagePromises.push(uploadPromise);
 
-    // Create update payload
-    const updatedItem = {
-      ...updateMenuItemDto,
-      image: imageUrl,
-      updatedAt: new Date(),
-    };
+      // Wait for image processing to complete
+      const results = await Promise.all(imagePromises);
+
+      // The last result is the new image URL
+      updatedItem.image = results[imagePromises.length - 1];
+    }
 
     // Perform update
     const result = await this.menuItemModel
@@ -245,33 +287,52 @@ export class MenuService {
 
   async deleteMenuItem(id: string, req: decodedRequest) {
     const restaurantId = req.user?.restaurantId;
-    const item = await this.menuItemModel.findOneAndDelete({
-      _id: id,
-      restaurant: restaurantId,
-    });
+
+    // Get the item first to access its image URL
+    const item = await this.menuItemModel
+      .findOne({
+        _id: id,
+        restaurant: restaurantId,
+      })
+      .select('image')
+      .lean()
+      .exec();
 
     if (!item) {
       throw new NotFoundException('Menu item not found');
     }
 
-    // Delete image from Cloudinary
+    // Perform deletion and image cleanup in parallel
+    const deletePromises = [this.menuItemModel.findByIdAndDelete(id).exec()];
+
+    // Delete image from Cloudinary if it exists
     if (item.image) {
-      await this.cloudinaryService.deleteImage(item.image);
+      deletePromises.push(this.cloudinaryService.deleteImage(item.image));
     }
 
-    return item;
+    // Wait for all operations to complete
+    const [deletedItem] = await Promise.all(deletePromises);
+
+    return deletedItem;
   }
 
   async toggleAvailability(id: string, isAvailable: boolean) {
-    const item = await this.menuItemModel.findOneAndUpdate(
-      {
-        _id: id,
-      },
-      {
-        isAvailable,
-      },
-      { new: true },
-    );
+    const item = await this.menuItemModel
+      .findOneAndUpdate(
+        {
+          _id: id,
+        },
+        {
+          isAvailable,
+        },
+        { new: true },
+      )
+      .exec();
+
+    if (!item) {
+      throw new NotFoundException('Menu item not found');
+    }
+
     return item;
   }
 }
