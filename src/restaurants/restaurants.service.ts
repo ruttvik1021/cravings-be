@@ -25,30 +25,43 @@ export class RestaurantsService {
   ) {}
 
   async updateApprovalStatus(id: string): Promise<User> {
-    return this.userModel.findOneAndUpdate(
-      { _id: id, isApproved: false },
-      { isApproved: true },
-      { new: true },
-    );
+    return this.userModel
+      .findOneAndUpdate(
+        { _id: id, isApproved: false },
+        { isApproved: true },
+        { new: true },
+      )
+      .lean()
+      .exec();
   }
 
   async rejectRestaurant(id: string): Promise<UserDocument> {
-    return this.userModel.findOneAndDelete({ _id: id, isApproved: false });
+    return this.userModel
+      .findOneAndDelete({ _id: id, isApproved: false })
+      .lean()
+      .exec();
   }
 
   async getRestaurantOwners() {
-    return this.userModel.find({
-      role: UserRoles.RESTAURANT_OWNER,
-      isApproved: true,
-    });
+    return this.userModel
+      .find({
+        role: UserRoles.RESTAURANT_OWNER,
+        isApproved: true,
+      })
+      .lean()
+      .exec();
   }
 
   async getRestaurantOwnersRequests() {
-    return this.userModel.find({
-      role: UserRoles.RESTAURANT_OWNER,
-      isApproved: false,
-    });
+    return this.userModel
+      .find({
+        role: UserRoles.RESTAURANT_OWNER,
+        isApproved: false,
+      })
+      .lean()
+      .exec();
   }
+
   // Create a new restaurant
   async createRestaurant(
     createRestaurantDto: CreateRestaurantDto,
@@ -61,23 +74,26 @@ export class RestaurantsService {
     if (!ownerId) {
       throw new BadRequestException('UserId not found.');
     }
-    const existingRestaurant = await this.getRestaurantsByOwner(ownerId);
+
+    // Check if owner already has a restaurant - using lean for memory efficiency
+    const existingRestaurant = await this.restaurantModel
+      .findOne({
+        owner: new mongoose.Types.ObjectId(ownerId),
+      })
+      .lean()
+      .exec();
+
     if (existingRestaurant) {
       throw new BadRequestException('You already own a restaurant.');
     }
-    const logoUrl = await this.cloudinaryService.uploadImage(
-      logo,
-      `restaurants/${ownerId}/logo`,
-    );
 
-    const imageUrls = await Promise.all(
-      images.map((image, index) =>
-        this.cloudinaryService.uploadImage(
-          image,
-          `restaurants/${ownerId}/images/${index}`,
-        ),
-      ),
-    );
+    // Upload logo and images in parallel
+    const [logoUrl, imageUrls] = await Promise.all([
+      this.cloudinaryService.uploadImage(logo, `restaurants/${ownerId}/logo`),
+
+      // Process images in smaller batches to prevent memory issues
+      this.processImagesInBatches(images, ownerId, 3),
+    ]);
 
     // Create the restaurant
     const restaurant = new this.restaurantModel({
@@ -90,20 +106,48 @@ export class RestaurantsService {
     return restaurant.save();
   }
 
+  // Helper method to process images in batches
+  private async processImagesInBatches(
+    images: Express.Multer.File[],
+    ownerId: string,
+    batchSize: number,
+  ): Promise<string[]> {
+    const imageUrls: string[] = [];
+
+    // Process images in batches
+    for (let i = 0; i < images.length; i += batchSize) {
+      const batch = images.slice(i, i + batchSize);
+      const batchUrls = await Promise.all(
+        batch.map((image, index) =>
+          this.cloudinaryService.uploadImage(
+            image,
+            `restaurants/${ownerId}/images/${i + index}`,
+          ),
+        ),
+      );
+      imageUrls.push(...batchUrls);
+    }
+
+    return imageUrls;
+  }
+
   async updateRestaurant(
-    updateRestaurantDto: CreateRestaurantDto, // Can be a separate DTO if needed
-    logo: Express.Multer.File | undefined, // Optional logo
-    images: Express.Multer.File[] | undefined, // Optional images
+    updateRestaurantDto: CreateRestaurantDto,
+    logo: Express.Multer.File | undefined,
+    images: Express.Multer.File[] | undefined,
     restaurantId: string,
-    req: decodedRequest, // Get the user ID from request
+    req: decodedRequest,
   ): Promise<Restaurant> {
     const ownerId = req.user?._id;
     if (!ownerId) {
       throw new BadRequestException('UserId not found.');
     }
 
-    const existingRestaurant =
-      await this.restaurantModel.findById(restaurantId);
+    // Use lean() for memory efficiency when just checking data
+    const existingRestaurant = await this.restaurantModel
+      .findById(restaurantId)
+      .lean()
+      .exec();
     if (!existingRestaurant) {
       throw new NotFoundException('Restaurant not found.');
     }
@@ -112,50 +156,64 @@ export class RestaurantsService {
       throw new ForbiddenException('You can only update your own restaurant.');
     }
 
-    // Upload new logo if provided
-    let logoUrl = existingRestaurant.logo;
-    if (logo) {
-      logoUrl = await this.cloudinaryService.uploadImage(
-        logo,
-        `restaurants/${ownerId}/logo`,
-      );
+    // Prepare update operations
+    const updateData: any = { ...updateRestaurantDto };
+
+    // Process media uploads only if provided
+    if (logo || (images && images.length > 0)) {
+      const uploadPromises = [];
+
+      // Initialize with existing values
+      let logoUrl = existingRestaurant.logo;
+      let imageUrls = existingRestaurant.images;
+
+      // Only upload new logo if provided
+      if (logo) {
+        uploadPromises.push(
+          this.cloudinaryService
+            .uploadImage(logo, `restaurants/${ownerId}/logo`)
+            .then((url) => {
+              logoUrl = url;
+            }),
+        );
+      }
+
+      // Only upload new images if provided
+      if (images && images.length > 0) {
+        uploadPromises.push(
+          this.processImagesInBatches(images, ownerId, 3).then((urls) => {
+            imageUrls = urls;
+          }),
+        );
+      }
+
+      // Wait for all uploads to complete
+      if (uploadPromises.length > 0) {
+        await Promise.all(uploadPromises);
+      }
+
+      // Set the media URLs in the update data
+      updateData.logo = logoUrl;
+      updateData.images = imageUrls;
     }
 
-    // Upload new images if provided, otherwise retain existing ones
-    let imageUrls = existingRestaurant.images;
-    if (images && images.length > 0) {
-      imageUrls = await Promise.all(
-        images.map((image, index) =>
-          this.cloudinaryService.uploadImage(
-            image,
-            `restaurants/${ownerId}/images/${index}`,
-          ),
-        ),
-      );
-    }
-
-    // Update restaurant details
-    const updatedRestaurant = await this.restaurantModel.findByIdAndUpdate(
-      restaurantId,
-      {
-        ...updateRestaurantDto,
-        logo: logoUrl,
-        images: imageUrls,
-      },
-      { new: true, runValidators: true },
-    );
-
-    return updatedRestaurant;
+    // Update restaurant with all changes at once
+    return this.restaurantModel
+      .findByIdAndUpdate(restaurantId, updateData, {
+        new: true,
+        runValidators: true,
+      })
+      .exec();
   }
 
   async getRestaurantDetails(req: decodedRequest) {
     const restaurantId = req.user?.restaurantId;
-    return await this.getRestaurantById(restaurantId);
+    return this.getRestaurantById(restaurantId);
   }
 
   // Get a restaurant by ID
   async getRestaurantById(id: string): Promise<RestaurantDocument> {
-    const restaurant = await this.restaurantModel.findById(id);
+    const restaurant = await this.restaurantModel.findById(id).exec();
     if (!restaurant) {
       throw new BadRequestException('Restaurant not found.');
     }
@@ -164,16 +222,17 @@ export class RestaurantsService {
 
   // Get restaurants by owner ID
   async getRestaurantsByOwner(ownerId: string): Promise<RestaurantDocument> {
-    const resto = await this.restaurantModel.findOne({
-      owner: new mongoose.Types.ObjectId(ownerId),
-    });
-    return resto;
+    return this.restaurantModel
+      .findOne({
+        owner: new mongoose.Types.ObjectId(ownerId),
+      })
+      .exec();
   }
 
   // Delete a restaurant
   async deleteRestaurant(id: string): Promise<void> {
-    const restaurant = await this.restaurantModel.findByIdAndDelete(id);
-    if (!restaurant) {
+    const result = await this.restaurantModel.findByIdAndDelete(id).exec();
+    if (!result) {
       throw new BadRequestException('Restaurant not found.');
     }
   }
