@@ -9,7 +9,8 @@ export class RestaurantOwnerGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<decodedRequest>();
-    const restaurantId = request.params.restaurantId;
+    const restaurantId =
+      request.params.restaurantId || request.user?.restaurantId;
     const userId = request.user?._id;
 
     const restaurant =

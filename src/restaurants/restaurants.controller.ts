@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Req,
   UploadedFiles,
   UseGuards,
@@ -39,6 +40,27 @@ export class RestaurantsController {
       createRestaurantDto,
       logo,
       images,
+      req,
+    );
+  }
+
+  @Put('setup/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoles.RESTAURANT_OWNER)
+  @UseInterceptors(AnyFilesInterceptor())
+  async updateRestaurant(
+    @UploadedFiles() files: Express.Multer.File[], // Catch all files
+    @Body() createRestaurantDto: CreateRestaurantDto,
+    @Param('id') id: string,
+    @Req() req: decodedRequest,
+  ) {
+    const logo = files.find((file) => file.fieldname === 'logo'); // Extract logo
+    const images = files.filter((file) => file.fieldname === 'images'); // Extract images
+    return this.restaurantsService.updateRestaurant(
+      createRestaurantDto,
+      logo,
+      images,
+      id,
       req,
     );
   }
