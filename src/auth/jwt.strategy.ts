@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { UserDocument, UserRoles } from '../users/schemas/user.schema';
 
 export type JWT_Payload = {
-  _id: string;
+  userId: string;
   email: string;
   role: UserRoles;
 };
@@ -21,9 +21,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: any): Promise<Partial<UserDocument>> {
+  async validate(payload: JWT_Payload): Promise<Partial<UserDocument>> {
     return {
-      _id: payload.sub,
+      _id: payload.userId,
       email: payload.email,
       role: payload.role,
     };

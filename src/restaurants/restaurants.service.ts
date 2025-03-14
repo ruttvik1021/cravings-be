@@ -3,11 +3,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { decodedRequest } from 'src/middlewares/token-validator-middleware';
-import { CreateRestaurantDto } from 'src/users/dto/create-restaurant.dto';
+import { CreateRestaurantDto } from 'src/restaurants/dto/create-restaurant.dto';
 import {
   Restaurant,
   RestaurantDocument,
-} from 'src/users/schemas/restaurant.schema';
+} from 'src/restaurants/schemas/restaurant.schema';
 import { User, UserDocument, UserRoles } from 'src/users/schemas/user.schema';
 
 @Injectable()
@@ -51,25 +51,25 @@ export class RestaurantsService {
     images: Express.Multer.File[],
     req: decodedRequest,
   ): Promise<Restaurant> {
-    const ownerId = req.user?.userId;
+    const ownerId = req.user?._id;
 
     if (!ownerId) {
       throw new BadRequestException('UserId not found.');
     }
     const existingRestaurant = await this.getRestaurantsByOwner(ownerId);
-    if (existingRestaurant.length) {
+    if (existingRestaurant) {
       throw new BadRequestException('You already own a restaurant.');
     }
     const logoUrl = await this.cloudinaryService.uploadImage(
       logo,
-      `restaurants/${ownerId}/${existingRestaurant.length + 1}/logo`,
+      `restaurants/${ownerId}/logo`,
     );
 
     const imageUrls = await Promise.all(
       images.map((image, index) =>
         this.cloudinaryService.uploadImage(
           image,
-          `restaurants/${ownerId}/${existingRestaurant.length + 1}/images/${index}`,
+          `restaurants/${ownerId}/images/${index}`,
         ),
       ),
     );
@@ -86,8 +86,8 @@ export class RestaurantsService {
   }
 
   async getRestaurantDetails(req: decodedRequest) {
-    const ownerId = req.user?.userId;
-    return this.getRestaurantsByOwner(ownerId);
+    const ownerId = req.user?._id;
+    return await this.getRestaurantsByOwner(ownerId);
   }
 
   // Get a restaurant by ID
@@ -100,8 +100,9 @@ export class RestaurantsService {
   }
 
   // Get restaurants by owner ID
-  async getRestaurantsByOwner(ownerId: string): Promise<Restaurant[]> {
-    return this.restaurantModel.find({ owner: ownerId });
+  async getRestaurantsByOwner(ownerId: string): Promise<RestaurantDocument> {
+    const resto = await this.restaurantModel.findOne({ owner: ownerId });
+    return resto;
   }
 
   // Delete a restaurant

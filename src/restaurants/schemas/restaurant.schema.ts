@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import mongoose, { Document } from 'mongoose';
 
 export enum RestaurantType {
   FAST_FOOD = 'fast-food',
@@ -67,7 +67,11 @@ export class Restaurant {
   @Prop({ required: true })
   closingTime: string;
 
-  @Prop({ required: true, ref: 'User' }) // Reference to the User who owns the restaurant
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+    ref: 'User',
+  })
   owner: string;
 
   @Prop({ default: false })

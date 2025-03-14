@@ -18,6 +18,8 @@ import {
   UserDocument,
   UserRoles,
 } from './schemas/user.schema';
+import { RestaurantsService } from 'src/restaurants/restaurants.service';
+import { RestaurantDocument } from 'src/restaurants/schemas/restaurant.schema';
 
 @Injectable()
 export class UsersService {
@@ -26,6 +28,7 @@ export class UsersService {
     private jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly restaurant: RestaurantsService,
   ) {}
 
   async isUserPresent(email: string) {
@@ -53,7 +56,7 @@ export class UsersService {
     await newUser.save();
 
     const payload = {
-      userId: newUser._id,
+      _id: newUser._id,
       email: newUser.email,
       role: newUser.role,
     };
@@ -194,8 +197,19 @@ export class UsersService {
 
     const payload = { userId: user.id, email: user.email, role: user.role };
 
+    let restaurant: RestaurantDocument | null = null;
+
+    if (user.role === UserRoles.RESTAURANT_OWNER) {
+      restaurant = await this.restaurant.getRestaurantsByOwner(user.id);
+    }
+
     const accessToken = await this.jwtService.signAsync(
-      { ...payload },
+      {
+        ...payload,
+        ...(user.role === UserRoles.RESTAURANT_OWNER
+          ? { restaurantId: restaurant?.id }
+          : {}),
+      },
       { secret: jwtSecret, expiresIn: jwtExpiresIn },
     );
 
