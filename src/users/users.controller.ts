@@ -15,6 +15,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { UsersService } from './users.service';
+import { decodedRequest } from 'src/middlewares/token-validator-middleware';
 
 @Controller('auth')
 export class UsersController {
@@ -80,8 +81,8 @@ export class UsersController {
   // **Profile Route**
   @Get('profile')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@Request() req) {
-    return this.usersService.getUserById(req.user.userId);
+  async getProfile(@Request() req: decodedRequest) {
+    return this.usersService.getUserById(req.user._id);
   }
 
   @Get('delivery_agents')

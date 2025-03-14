@@ -72,4 +72,8 @@ export class CloudinaryService {
       Readable.from(file.buffer).pipe(uploadStream);
     });
   }
+
+  async deleteImage(publicId: string) {
+    return cloudinary.uploader.destroy(publicId);
+  }
 }

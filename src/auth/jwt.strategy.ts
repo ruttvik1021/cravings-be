@@ -1,14 +1,15 @@
 // src/auth/jwt.strategy.ts
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ConfigService } from '@nestjs/config';
-import { UserDocument, UserRoles } from '../users/schemas/user.schema';
+import { UserRoles } from '../users/schemas/user.schema';
 
 export type JWT_Payload = {
-  _id: string;
+  userId: string;
   email: string;
   role: UserRoles;
+  restaurantId: string;
 };
 
 @Injectable()
@@ -21,11 +22,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: any): Promise<Partial<UserDocument>> {
+  async validate(payload: JWT_Payload) {
     return {
-      _id: payload.sub,
+      _id: payload.userId,
       email: payload.email,
       role: payload.role,
+      restaurantId: payload.restaurantId,
     };
   }
 }

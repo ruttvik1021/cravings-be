@@ -53,7 +53,7 @@ export class UsersService {
     await newUser.save();
 
     const payload = {
-      userId: newUser._id,
+      _id: newUser._id,
       email: newUser.email,
       role: newUser.role,
     };
@@ -186,16 +186,47 @@ export class UsersService {
     const jwtSecret = this.configService.get('JWT_SECRET')!;
     const jwtExpiresIn = this.configService.get('JWT_EXPIRES_IN')!;
 
-    const user = await this.userModel.findOne({ email: loginDto.email });
+    const userWithRestaurant = await this.userModel.aggregate([
+      {
+        $match: { email: loginDto.email }, // Find user by email
+      },
+      {
+        $lookup: {
+          from: 'restaurants',
+          let: { userId: '$_id' }, // Keep `_id` as ObjectId
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: [{ $toObjectId: '$owner' }, '$$userId'] }, // Convert `owner` to ObjectId
+              },
+            },
+          ],
+          as: 'restaurant',
+        },
+      },
+      {
+        $unwind: {
+          path: '$restaurant',
+          preserveNullAndEmptyArrays: true, // Keep users even if they have no restaurant
+        },
+      },
+    ]);
+
+    const user = userWithRestaurant[0]; // Extract the first result
 
     if (!user || !(await bcrypt.compare(loginDto.password, user.password))) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload = { userId: user.id, email: user.email, role: user.role };
+    const payload = { userId: user._id, email: user.email, role: user.role };
+
+    const restaurant = user.restaurant || null; // Assign the restaurant if exists
 
     const accessToken = await this.jwtService.signAsync(
-      { ...payload },
+      {
+        ...payload,
+        restaurantId: restaurant?._id,
+      },
       { secret: jwtSecret, expiresIn: jwtExpiresIn },
     );
 

@@ -8,8 +8,9 @@ import { RolesGuard } from 'src/auth/roles.guard';
 import {
   Restaurant,
   RestaurantSchema,
-} from 'src/users/schemas/restaurant.schema';
+} from 'src/restaurants/schemas/restaurant.schema';
 import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
+import { MenuModule } from './menu/menu.module';
 
 @Module({
   imports: [

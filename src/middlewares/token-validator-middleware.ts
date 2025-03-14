@@ -2,6 +2,7 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response, NextFunction } from 'express';
 import { ConfigService } from '@nestjs/config'; // Import ConfigService
+import { UserRoles } from 'src/users/schemas/user.schema';
 
 @Injectable()
 export class TokenValidator implements NestMiddleware {
@@ -10,7 +11,7 @@ export class TokenValidator implements NestMiddleware {
     private readonly configService: ConfigService, // Inject ConfigService
   ) {}
 
-  use(req: decodedRequest, res: Response, next: NextFunction) {
+  use(req: Request, res: Response, next: NextFunction) {
     const { headers } = req;
     const authorizationHeader = headers.authorization;
 
@@ -20,13 +21,12 @@ export class TokenValidator implements NestMiddleware {
 
     const [bearer, token] = authorizationHeader.split(' ');
 
-    console.log('bearer', { bearer, token });
-
     if (bearer !== 'Bearer' || !token) {
       return res.status(401).json({
         message: 'Unauthorized',
       });
     }
+
     const secret = this.configService.get<string>('JWT_SECRET') || ''; // Get JWT_SECRET from environment
 
     try {
@@ -44,7 +44,12 @@ export class TokenValidator implements NestMiddleware {
 }
 
 type TokenReq = {
-  user?: any;
+  user?: {
+    _id: string;
+    email: string;
+    role: UserRoles;
+    restaurantId?: string;
+  };
 };
 
 export type decodedRequest = TokenReq & Request;

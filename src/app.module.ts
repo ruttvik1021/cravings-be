@@ -10,6 +10,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
 import { TokenValidator } from './middlewares/token-validator-middleware';
+import { MenuModule } from './restaurants/menu/menu.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { TokenValidator } from './middlewares/token-validator-middleware';
     UsersModule,
     CloudinaryModule,
     RestaurantsModule,
+    MenuModule,
   ],
   controllers: [AppController],
   providers: [AppService, JwtStrategy],
@@ -48,7 +50,7 @@ export class AppModule implements NestModule {
         '/auth/register/restaurant',
         '/auth/register/delivery',
         '/auth/login',
-      ) // Correct wildcard usage
-      .forRoutes('/*');
+      )
+      .forRoutes('*');
   }
 }
