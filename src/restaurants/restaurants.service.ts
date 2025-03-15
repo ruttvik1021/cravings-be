@@ -214,9 +214,98 @@ export class RestaurantsService {
       .exec();
   }
 
+  async getAllRestaurants() {
+    return await this.restaurantModel
+      .find()
+      // .select('-__v, -createdAt, -updatedAt')
+      .lean()
+      .exec();
+  }
+
   async getRestaurantDetails(req: decodedRequest) {
     const restaurantId = req.user?.restaurantId;
     return this.getRestaurantById(restaurantId);
+  }
+
+  async getRestaurantByIdForUser(id: string) {
+    const restaurant = await this.restaurantModel.aggregate([
+      {
+        $match: { _id: new mongoose.Types.ObjectId(id) }, // Match the restaurant by ID
+      },
+
+      // Lookup categories related to this restaurant
+      {
+        $lookup: {
+          from: 'menucategories',
+          localField: '_id',
+          foreignField: 'restaurant',
+          as: 'categories',
+        },
+      },
+
+      // Lookup menu items related to this restaurant
+      {
+        $lookup: {
+          from: 'menuitems',
+          let: { restaurantId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$restaurant', '$$restaurantId'] },
+                isAvailable: true,
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                name: 1,
+                description: 1,
+                price: 1,
+                image: 1,
+                category: 1,
+              },
+            },
+          ],
+          as: 'menuItems',
+        },
+      },
+
+      // Attach menu items to their respective categories
+      {
+        $addFields: {
+          categories: {
+            $map: {
+              input: '$categories',
+              as: 'category',
+              in: {
+                _id: '$$category._id',
+                categoryName: '$$category.name',
+                categoryDescription: '$$category.description',
+                menuItems: {
+                  $filter: {
+                    input: '$menuItems',
+                    as: 'menuItem',
+                    cond: { $eq: ['$$menuItem.category', '$$category._id'] },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+
+      // Optionally remove menuItems from the top level
+      {
+        $project: {
+          menuItems: 0, // Remove separate menuItems array if not needed
+        },
+      },
+    ]);
+
+    if (!restaurant.length) {
+      throw new BadRequestException('Restaurant not found.');
+    }
+    return restaurant[0];
   }
 
   // Get a restaurant by ID

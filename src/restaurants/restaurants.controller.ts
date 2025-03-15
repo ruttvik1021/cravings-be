@@ -25,6 +25,18 @@ import { RestaurantsService } from './restaurants.service';
 export class RestaurantsController {
   constructor(private readonly restaurantsService: RestaurantsService) {}
 
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async restaurantList() {
+    return this.restaurantsService.getAllRestaurants();
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  async restaurantDetials(@Param('id') id: string) {
+    return this.restaurantsService.getRestaurantByIdForUser(id);
+  }
+
   @Post('setup')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoles.RESTAURANT_OWNER)
@@ -104,11 +116,5 @@ export class RestaurantsController {
     @Query('limit') limit: string = '10',
   ) {
     return this.restaurantsService.getRestaurantOwnersRequests(page, limit);
-  }
-
-  @Get(':id')
-  @UseGuards(JwtAuthGuard)
-  async restaurantDetials(@Param('id') id: string) {
-    return this.restaurantsService.getRestaurantById(id);
   }
 }
