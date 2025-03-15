@@ -1,0 +1,13 @@
+name = "cravings-be"
+type = "webpack"
+account_id = "955c3c0e1d41c832fdad8cc43f7f6728"
+workers_dev = true
+compatibility_date = "2023-06-01"
+
+[build]
+command = "npm run build"
+[build.upload]
+format = "service-worker"
+
+[site]
+bucket = "./dist"
