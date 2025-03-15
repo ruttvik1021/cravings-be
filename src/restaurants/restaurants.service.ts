@@ -203,6 +203,7 @@ export class RestaurantsService {
         new: true,
         runValidators: true,
       })
+      .lean()
       .exec();
   }
 
@@ -213,7 +214,7 @@ export class RestaurantsService {
 
   // Get a restaurant by ID
   async getRestaurantById(id: string): Promise<RestaurantDocument> {
-    const restaurant = await this.restaurantModel.findById(id).exec();
+    const restaurant = await this.restaurantModel.findById(id).lean().exec();
     if (!restaurant) {
       throw new BadRequestException('Restaurant not found.');
     }
@@ -226,6 +227,7 @@ export class RestaurantsService {
       .findOne({
         owner: new mongoose.Types.ObjectId(ownerId),
       })
+      .lean()
       .exec();
   }
 

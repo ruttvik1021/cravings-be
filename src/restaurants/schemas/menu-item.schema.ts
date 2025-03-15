@@ -13,7 +13,6 @@ import { MenuCategory } from './menu-category.schema';
       delete ret.createdAt;
       delete ret.updatedAt;
       delete ret.__v;
-      delete ret.password;
     },
   },
 })
@@ -45,10 +44,13 @@ export class MenuItem {
   restaurant: Restaurant;
 
   @Prop({ default: false })
-  isFeatured: boolean;
+  isAvailable: boolean;
 
   @Prop({ default: false })
-  isAvailable: boolean;
+  isFeatured: boolean;
+
+  @Prop({ default: true })
+  isVegeterian: boolean;
 }
 
 export type MenuItemDocument = MenuItem & Document;

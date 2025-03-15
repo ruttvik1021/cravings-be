@@ -38,11 +38,11 @@ export class MenuController {
     return this.menuService.createCategory(createCategoryDto, req);
   }
 
-  @Get('categories')
+  @Get('categories/all')
   @Roles(UserRoles.RESTAURANT_OWNER)
   @UseGuards(JwtAuthGuard, RolesGuard, RestaurantOwnerGuard)
   async getCategories(@Req() req: decodedRequest) {
-    return this.menuService.getCategories(req);
+    return this.menuService.getAllCategories(req);
   }
 
   @Put('category/:id')

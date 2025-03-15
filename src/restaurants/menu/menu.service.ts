@@ -12,7 +12,7 @@ import {
   MenuCategory,
   MenuCategoryDocument,
 } from '../schemas/menu-category.schema';
-import { MenuItem } from '../schemas/menu-item.schema';
+import { MenuItem, MenuItemDocument } from '../schemas/menu-item.schema';
 import { CreateMenuItemDto } from '../dto/create-menu-item.dto';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 
@@ -22,7 +22,7 @@ export class MenuService {
     @InjectModel(MenuCategory.name)
     private categoryModel: Model<MenuCategoryDocument>,
     @InjectModel(MenuItem.name)
-    private menuItemModel: Model<MenuItem>,
+    private menuItemModel: Model<MenuItemDocument>,
     private cloudinaryService: CloudinaryService,
   ) {}
 
@@ -52,18 +52,48 @@ export class MenuService {
     return category.save();
   }
 
-  async getCategories(req: decodedRequest) {
+  async getAllCategories(req: decodedRequest) {
     const restaurantId = req.user?.restaurantId;
 
-    return this.categoryModel
-      .find(
-        {
+    const pipeline = [
+      {
+        $match: {
           restaurant: new mongoose.Types.ObjectId(restaurantId),
         },
-        { name: 1, _id: 1, description: 1 },
-      )
-      .lean()
-      .exec();
+      },
+      {
+        $project: {
+          name: 1,
+          _id: 1,
+          description: 1,
+        },
+      },
+      {
+        $lookup: {
+          from: 'menuitems', // 'menuitems' should be the collection name of the menuItemModel
+          localField: '_id', // the field in 'restos' collection (category)
+          foreignField: 'category', // the field in 'menuitems' collection that links to the category
+          as: 'menuItems', // results of the join will be in this field
+        },
+      },
+      {
+        $addFields: {
+          menuItemCount: { $size: '$menuItems' }, // Add the count of menuItems in each category
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          description: 1,
+          menuItemCount: 1,
+        },
+      },
+    ];
+
+    // Execute the aggregation query
+    const result = await this.categoryModel.aggregate(pipeline).exec();
+
+    return result;
   }
 
   async updateCategory(
@@ -175,7 +205,6 @@ export class MenuService {
     const restaurantId = req.user.restaurantId;
     return this.menuItemModel
       .find({ restaurant: restaurantId })
-      .select('name price description category image isAvailable')
       .sort('name')
       .lean()
       .exec();
