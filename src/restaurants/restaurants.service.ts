@@ -14,6 +14,7 @@ import {
   RestaurantDocument,
 } from 'src/restaurants/schemas/restaurant.schema';
 import { User, UserDocument, UserRoles } from 'src/users/schemas/user.schema';
+import { getPaginationLimits } from 'src/utils';
 
 @Injectable()
 export class RestaurantsService {
@@ -42,22 +43,28 @@ export class RestaurantsService {
       .exec();
   }
 
-  async getRestaurantOwners() {
+  async getRestaurantOwners(page: string, limit: string) {
+    const { skip, limit: limitCount } = getPaginationLimits(page, limit);
     return this.userModel
       .find({
         role: UserRoles.RESTAURANT_OWNER,
         isApproved: true,
       })
+      .limit(limitCount)
+      .skip(skip)
       .lean()
       .exec();
   }
 
-  async getRestaurantOwnersRequests() {
+  async getRestaurantOwnersRequests(page: string, limit: string) {
+    const { skip, limit: limitCount } = getPaginationLimits(page, limit);
     return this.userModel
       .find({
         role: UserRoles.RESTAURANT_OWNER,
         isApproved: false,
       })
+      .limit(limitCount)
+      .skip(skip)
       .lean()
       .exec();
   }

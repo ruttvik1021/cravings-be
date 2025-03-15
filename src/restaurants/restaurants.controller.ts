@@ -6,20 +6,20 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Req,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
-import { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
 import { RolesGuard } from 'src/auth/roles.guard';
+import { decodedRequest } from 'src/middlewares/token-validator-middleware';
 import { CreateRestaurantDto } from 'src/restaurants/dto/create-restaurant.dto';
 import { UserRoles } from 'src/users/schemas/user.schema';
 import { RestaurantsService } from './restaurants.service';
-import { decodedRequest } from 'src/middlewares/token-validator-middleware';
 
 @Controller('restaurants')
 export class RestaurantsController {
@@ -89,15 +89,21 @@ export class RestaurantsController {
   @Get('restaurant_owners')
   @Roles(UserRoles.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
-  async restaurantOwners() {
-    return this.restaurantsService.getRestaurantOwners();
+  async restaurantOwners(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
+    return this.restaurantsService.getRestaurantOwners(page, limit);
   }
 
   @Get('restaurant_owners/requests')
   @Roles(UserRoles.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
-  async restaurantOwnersRequests() {
-    return this.restaurantsService.getRestaurantOwnersRequests();
+  async restaurantOwnersRequests(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
+    return this.restaurantsService.getRestaurantOwnersRequests(page, limit);
   }
 
   @Get(':id')

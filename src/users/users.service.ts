@@ -17,6 +17,7 @@ import {
   UserDocument,
   UserRoles,
 } from './schemas/user.schema';
+import { getPaginationLimits } from 'src/utils';
 
 @Injectable()
 export class UsersService {
@@ -238,22 +239,28 @@ export class UsersService {
     return this.userModel.findById(id).select('-password').lean().exec();
   }
 
-  async getDeliveryAgents() {
+  async getDeliveryAgents(page: string, limit: string) {
+    const { skip, limit: limitCount } = getPaginationLimits(page, limit);
     return this.userModel
       .find({
         role: UserRoles.RESTAURANT_OWNER,
         isApproved: true,
       })
+      .limit(limitCount)
+      .skip(skip)
       .lean()
       .exec();
   }
 
-  async getDeliveryAgentsRequests() {
+  async getDeliveryAgentsRequests(page: string, limit: string) {
+    const { skip, limit: limitCount } = getPaginationLimits(page, limit);
     return this.userModel
       .find({
         role: UserRoles.RESTAURANT_OWNER,
         isApproved: false,
       })
+      .limit(limitCount)
+      .skip(skip)
       .lean()
       .exec();
   }

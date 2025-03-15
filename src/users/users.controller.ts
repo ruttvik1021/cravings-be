@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Post,
+  Query,
   Request,
   UploadedFiles,
   UseGuards,
@@ -10,12 +11,12 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { RolesGuard } from 'src/auth/roles.guard';
+import { decodedRequest } from 'src/middlewares/token-validator-middleware';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { UsersService } from './users.service';
-import { decodedRequest } from 'src/middlewares/token-validator-middleware';
 
 @Controller('auth')
 export class UsersController {
@@ -88,14 +89,20 @@ export class UsersController {
   @Get('delivery_agents')
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  async deliveryAgents() {
-    return this.usersService.getDeliveryAgents();
+  async deliveryAgents(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
+    return this.usersService.getDeliveryAgents(page, limit);
   }
 
   @Get('delivery_agents/requests')
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  async deliveryAgentsRequests() {
-    return this.usersService.getDeliveryAgentsRequests();
+  async deliveryAgentsRequests(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
+    return this.usersService.getDeliveryAgentsRequests(page, limit);
   }
 }
