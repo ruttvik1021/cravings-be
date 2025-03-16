@@ -309,8 +309,8 @@ export class RestaurantsService {
   }
 
   // Get a restaurant by ID
-  async getRestaurantById(id: string): Promise<RestaurantDocument> {
-    const restaurant = await this.restaurantModel.findById(id).lean().exec();
+  async getRestaurantById(id: string) {
+    const restaurant = await this.restaurantModel.findById(id);
     if (!restaurant) {
       throw new BadRequestException('Restaurant not found.');
     }

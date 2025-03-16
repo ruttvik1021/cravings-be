@@ -31,13 +31,20 @@ export class RestaurantsController {
     return this.restaurantsService.getAllRestaurants();
   }
 
+  @Get('setup/details')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoles.RESTAURANT_OWNER)
+  async getSetupDetials(@Req() req: decodedRequest) {
+    return this.restaurantsService.getRestaurantDetails(req);
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async restaurantDetials(@Param('id') id: string) {
     return this.restaurantsService.getRestaurantByIdForUser(id);
   }
 
-  @Post('setup')
+  @Post('setup/details')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoles.RESTAURANT_OWNER)
   @UseInterceptors(AnyFilesInterceptor())
@@ -56,7 +63,7 @@ export class RestaurantsController {
     );
   }
 
-  @Put('setup/:id')
+  @Put('setup/details/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoles.RESTAURANT_OWNER)
   @UseInterceptors(AnyFilesInterceptor())
@@ -77,12 +84,6 @@ export class RestaurantsController {
     );
   }
 
-  @Get('setup')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoles.RESTAURANT_OWNER)
-  async getSetupDetials(@Req() req: decodedRequest) {
-    return this.restaurantsService.getRestaurantDetails(req);
-  }
   // **Admin Approval for Users**
   @Patch(':id/approve')
   @Roles(UserRoles.ADMIN)
