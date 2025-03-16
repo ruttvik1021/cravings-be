@@ -184,7 +184,7 @@ export class UsersService {
     const userWithRestaurant = await this.userModel
       .aggregate([
         {
-          $match: { email: loginDto.email }, // Find user by email
+          $match: { email: loginDto.email, role: loginDto.role }, // Find user by email
         },
         {
           $lookup: {
