@@ -12,9 +12,12 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import {
+  AnyFilesInterceptor,
+  FileFieldsInterceptor,
+} from '@nestjs/platform-express';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { Roles } from 'src/auth/roles.decorator';
+import { Roles } from 'src/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/roles.guard';
 import { decodedRequest } from 'src/middlewares/token-validator-middleware';
 import { CreateRestaurantDto } from 'src/restaurants/dto/create-restaurant.dto';
@@ -26,7 +29,7 @@ export class RestaurantsController {
   constructor(private readonly restaurantsService: RestaurantsService) {}
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  // @UseGuards(JwtAuthGuard)
   async restaurantList() {
     return this.restaurantsService.getAllRestaurants();
   }
@@ -39,7 +42,7 @@ export class RestaurantsController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
+  // @UseGuards(JwtAuthGuard)
   async restaurantDetials(@Param('id') id: string) {
     return this.restaurantsService.getRestaurantByIdForUser(id);
   }
@@ -66,15 +69,24 @@ export class RestaurantsController {
   @Put('setup/details/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoles.RESTAURANT_OWNER)
-  @UseInterceptors(AnyFilesInterceptor())
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'images', maxCount: 1 },
+      { name: 'logo', maxCount: 1 },
+    ]),
+  )
   async updateRestaurant(
-    @UploadedFiles() files: Express.Multer.File[], // Catch all files
+    @UploadedFiles()
+    files: {
+      images?: Express.Multer.File[];
+      logo?: Express.Multer.File[];
+    }, // Catch all files
     @Body() createRestaurantDto: CreateRestaurantDto,
     @Param('id') id: string,
     @Req() req: decodedRequest,
   ) {
-    const logo = files.find((file) => file.fieldname === 'logo'); // Extract logo
-    const images = files.filter((file) => file.fieldname === 'images'); // Extract images
+    const logo = files.logo ? files.logo[0] : null; // Extract logo
+    const images = files.images ? files.images : null; // Extract images
     return this.restaurantsService.updateRestaurant(
       createRestaurantDto,
       logo,
@@ -117,5 +129,12 @@ export class RestaurantsController {
     @Query('limit') limit: string = '10',
   ) {
     return this.restaurantsService.getRestaurantOwnersRequests(page, limit);
+  }
+
+  @Get('admin/profile')
+  @Roles(UserRoles.RESTAURANT_OWNER)
+  @UseGuards(JwtAuthGuard)
+  async getRestaurantOwnerProfile(@Req() req: decodedRequest) {
+    return this.restaurantsService.getOwnerProfile(req);
   }
 }

@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { RestaurantOwnerGuard } from 'src/auth/restaurant-owner.guard';
-import { Roles } from 'src/auth/roles.decorator';
+import { Roles } from 'src/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/roles.guard';
 import { decodedRequest } from 'src/middlewares/token-validator-middleware';
 import { CreateCategoryDto } from 'src/restaurants/dto/create-category.dto';

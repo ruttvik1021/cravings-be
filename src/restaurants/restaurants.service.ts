@@ -69,6 +69,15 @@ export class RestaurantsService {
       .exec();
   }
 
+  async getOwnerProfile(req: decodedRequest) {
+    const ownerId = req.user._id;
+    return this.userModel
+      .findById(ownerId)
+      .select('-updatedAt, -createdAt, -_v')
+      .lean()
+      .exec();
+  }
+
   // Create a new restaurant
   async createRestaurant(
     createRestaurantDto: CreateRestaurantDto,

@@ -2,7 +2,9 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
   Post,
+  Put,
   Query,
   Request,
   UploadedFiles,
@@ -13,7 +15,7 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { RolesGuard } from 'src/auth/roles.guard';
 import { decodedRequest } from 'src/middlewares/token-validator-middleware';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Roles } from '../auth/roles.decorator';
+import { Roles } from '../decorators/roles.decorator';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { UsersService } from './users.service';
@@ -24,8 +26,18 @@ export class UsersController {
 
   // **User Registration (Form Data Only)**
   @Post('register/user')
-  async registerUser(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.createUser(createUserDto);
+  @UseInterceptors(
+    FileFieldsInterceptor([{ name: 'profilePhoto', maxCount: 1 }]),
+  )
+  async registerUser(
+    @Body() createUserDto: CreateUserDto,
+    @UploadedFiles()
+    files: {
+      profilePhoto?: Express.Multer.File[];
+    },
+  ) {
+    const profilePhoto = files.profilePhoto ? files.profilePhoto[0] : null;
+    return this.usersService.createUser(createUserDto, profilePhoto);
   }
 
   // **Restaurant Owner Registration (With Profile Photo & ID Card)**
@@ -84,6 +96,26 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async getProfile(@Request() req: decodedRequest) {
     return this.usersService.getUserById(req.user._id);
+  }
+
+  @Put('profile')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileFieldsInterceptor([{ name: 'profilePhoto', maxCount: 1 }]),
+  )
+  async updateProfilePhoto(
+    @Body() body: { name: string },
+    @UploadedFiles()
+    files: {
+      profilePhoto?: Express.Multer.File;
+    },
+    @Request() req: decodedRequest,
+  ) {
+    return this.usersService.updateUserProfilePhoto(
+      body.name,
+      req,
+      files.profilePhoto?.[0],
+    );
   }
 
   @Get('delivery_agents')

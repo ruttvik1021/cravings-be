@@ -18,6 +18,7 @@ import {
   UserRoles,
 } from './schemas/user.schema';
 import { getPaginationLimits } from 'src/utils';
+import { decodedRequest } from 'src/middlewares/token-validator-middleware';
 
 @Injectable()
 export class UsersService {
@@ -44,6 +45,7 @@ export class UsersService {
 
   async createUser(
     createUserDto: CreateUserDto,
+    profilePhoto: Express.Multer.File,
   ): Promise<{ user: User; accessToken: string }> {
     await this.isUserPresent(createUserDto.email);
 
@@ -55,6 +57,17 @@ export class UsersService {
       isApproved: true,
     });
 
+    await newUser.save();
+
+    let profilePhotoUrl = '';
+    if (profilePhoto) {
+      profilePhotoUrl = await this.cloudinaryService.uploadProfileImage(
+        profilePhoto,
+        newUser._id as string,
+      );
+    }
+
+    newUser.profilePhoto = profilePhotoUrl;
     await newUser.save();
 
     const payload = {
@@ -180,11 +193,11 @@ export class UsersService {
 
   async login(
     loginDto: LoginDto,
-  ): Promise<{ user: Partial<UserDocument>; accessToken: string }> {
+  ): Promise<{ isApproved: boolean; accessToken: string }> {
     const userWithRestaurant = await this.userModel
       .aggregate([
         {
-          $match: { email: loginDto.email, role: loginDto.role }, // Find user by email
+          $match: { email: loginDto.email }, // Find user by email
         },
         {
           $lookup: {
@@ -218,7 +231,15 @@ export class UsersService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload = { userId: user._id, email: user.email, role: user.role };
+    if (loginDto.role !== UserRoles.USER && user.role === UserRoles.USER) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const payload = {
+      userId: user._id,
+      email: user.email,
+      role: loginDto.role,
+    };
     const restaurant = user.restaurant || null; // Assign the restaurant if exists
 
     const accessToken = await this.jwtService.signAsync(
@@ -230,13 +251,43 @@ export class UsersService {
     );
 
     return {
-      user,
       accessToken,
+      isApproved: loginDto.role === UserRoles.USER ? true : user.isApproved,
     };
   }
 
   async getUserById(id: string): Promise<User> {
-    return this.userModel.findById(id).select('-password').lean().exec();
+    return this.userModel
+      .findById(id)
+      .select('-password -updatedAt -createdAt -__v')
+      .lean()
+      .exec();
+  }
+
+  async updateUserProfilePhoto(
+    name: string,
+    req: decodedRequest,
+    profilePhoto?: Express.Multer.File,
+  ) {
+    const userId = req.user._id;
+
+    let updatedProfilePhoto = '';
+
+    if (profilePhoto) {
+      updatedProfilePhoto = await this.cloudinaryService.uploadProfileImage(
+        profilePhoto,
+        userId,
+      );
+    }
+
+    return this.userModel.findByIdAndUpdate(
+      userId,
+      {
+        name: name,
+        ...(profilePhoto && { profilePhoto: updatedProfilePhoto }),
+      },
+      { new: true },
+    );
   }
 
   async getDeliveryAgents(page: string, limit: string) {
